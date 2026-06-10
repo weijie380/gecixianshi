@@ -1,0 +1,76 @@
+name: "构建安装包"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（可选，留空自动生成）'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: "构建 DMG"
+    runs-on: macos-latest
+    steps:
+      - name: "检出代码"
+        uses: actions/checkout@v4
+
+      - name: "设置版本号"
+        if: github.event.inputs.version != ''
+        run: |
+          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" boringNotch.xcodeproj/project.pbxproj
+
+      - name: "构建 App（无签名）"
+        run: |
+          xcodebuild clean archive \
+            -project boringNotch.xcodeproj \
+            -scheme boringNotch \
+            -archivePath build/boringNotch \
+            -destination "generic/platform=macOS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: "导出 App"
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/boringNotch.xcarchive \
+            -exportPath Release \
+            -exportOptionsPlist /dev/null \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO || true
+          # 如果上面的导出失败（没签名证书），手动从 archive 复制
+          if [ ! -d "Release/boringNotch.app" ]; then
+            cp -R "build/boringNotch.xcarchive/Products/Applications/boringNotch.app" Release/
+          fi
+
+      - name: "创建 DMG"
+        run: |
+          python3 -m venv /tmp/dmg-venv
+          source /tmp/dmg-venv/bin/activate
+          pip3 install dmgbuild
+          bash Configuration/dmg/create_dmg.sh \
+            "$(pwd)/Release/boringNotch.app" \
+            "$(pwd)/Release/boringNotch.dmg" \
+            "boringNotch"
+
+      - name: "上传 DMG"
+        uses: actions/upload-artifact@v4
+        with:
+          name: boringNotch.dmg
+          path: Release/boringNotch.dmg
+
+      - name: "创建 Release"
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Release/boringNotch.dmg
+          generate_release_notes: true
