@@ -22,16 +22,16 @@ jobs:
             -project boringNotch.xcodeproj \
             -scheme boringNotch 2>&1
 
-      - name: "构建 App"
+      - name: "构建 App（ad-hoc 签名）"
         run: |
           xcodebuild -project boringNotch.xcodeproj \
             -scheme boringNotch \
             -configuration Release \
             -derivedDataPath DerivedData \
             -destination "generic/platform=macOS" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE="Manual" \
+            DEVELOPMENT_TEAM="" \
             ONLY_ACTIVE_ARCH=NO \
             build 2>&1
 
