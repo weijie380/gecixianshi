@@ -2,11 +2,6 @@ name: "构建安装包"
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: '版本号（可选）'
-        required: false
-        default: ''
   push:
     tags:
       - 'v*'
@@ -19,48 +14,49 @@ jobs:
     name: "构建 DMG"
     runs-on: macos-latest
     steps:
-      - name: "检出代码"
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: "设置版本号"
-        if: github.event.inputs.version != ''
-        run: |
-          sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" boringNotch.xcodeproj/project.pbxproj
-
-      - name: "解析 Swift 依赖"
+      - name: "解析 Swift 包依赖"
         run: |
           xcodebuild -resolvePackageDependencies \
             -project boringNotch.xcodeproj \
-            -scheme boringNotch
+            -scheme boringNotch 2>&1
 
       - name: "构建 App"
         run: |
-          xcodebuild build \
-            -project boringNotch.xcodeproj \
+          xcodebuild -project boringNotch.xcodeproj \
             -scheme boringNotch \
             -configuration Release \
-            -derivedDataPath build/DerivedData \
+            -derivedDataPath DerivedData \
             -destination "generic/platform=macOS" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            clean build
+            build 2>&1
 
-      - name: "复制 App"
+      - name: "打包 App"
         run: |
+          APP="DerivedData/Build/Products/Release/boringNotch.app"
+          if [ ! -d "$APP" ]; then
+            echo "App not found at $APP"
+            find DerivedData -name "*.app" -type d 2>/dev/null
+            exit 1
+          fi
           mkdir -p Release
-          cp -R "build/DerivedData/Build/Products/Release/boringNotch.app" Release/
+          cp -R "$APP" Release/
+          echo "App size: $(du -sh Release/boringNotch.app | cut -f1)"
+
+      - name: "安装 DMG 工具"
+        run: |
+          python3 -m pip install dmgbuild ds-store mac-alias 2>&1
 
       - name: "创建 DMG"
         run: |
-          python3 -m venv /tmp/dmg-venv
-          source /tmp/dmg-venv/bin/activate
-          pip3 install dmgbuild ds-store mac-alias
           bash Configuration/dmg/create_dmg.sh \
             "$(pwd)/Release/boringNotch.app" \
             "$(pwd)/Release/boringNotch.dmg" \
-            "boringNotch"
+            "boringNotch" 2>&1
 
       - name: "上传 DMG"
         uses: actions/upload-artifact@v4
