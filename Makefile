@@ -4,14 +4,12 @@ PROJECT_NAME = boringNotch
 SCHEME = boringNotch
 CONFIGURATION = Release
 BUILD_DIR = build
-ARCHIVE_PATH = $(BUILD_DIR)/$(PROJECT_NAME).xcarchive
 APP_PATH = $(BUILD_DIR)/$(CONFIGURATION)/$(PROJECT_NAME).app
 DMG_PATH = $(BUILD_DIR)/$(CONFIGURATION)/$(PROJECT_NAME).dmg
 DMG_SCRIPT = Configuration/dmg/create_dmg.sh
 
 VERSION := $(shell xcrun xcodebuild -project $(PROJECT_NAME).xcodeproj -showBuildSettings -scheme $(SCHEME) 2>/dev/null | grep MARKETING_VERSION | head -1 | awk '{print $$NF}')
 
-# Default target
 help:
 	@echo "Boring Notch - Build & Install"
 	@echo "=============================="
@@ -23,7 +21,6 @@ help:
 	@echo "  make open      - Open project in Xcode"
 	@echo "  make version   - Show version info"
 
-# Build the app
 build:
 	@echo "Building $(PROJECT_NAME)..."
 	xcodebuild -project $(PROJECT_NAME).xcodeproj \
@@ -35,9 +32,10 @@ build:
 		CODE_SIGN_IDENTITY="-" \
 		DEVELOPMENT_TEAM="" \
 		build
+	@mkdir -p $(BUILD_DIR)/$(CONFIGURATION)
+	@cp -R $(BUILD_DIR)/DerivedData/Build/Products/$(CONFIGURATION)/$(PROJECT_NAME).app $(BUILD_DIR)/$(CONFIGURATION)/
 	@echo "Done! App built at: $(APP_PATH)"
 
-# Build and install to /Applications
 install: build
 	@echo "Installing to /Applications..."
 	@if [ -d "/Applications/$(PROJECT_NAME).app" ]; then \
@@ -45,14 +43,14 @@ install: build
 		rm -rf "/Applications/$(PROJECT_NAME).app"; \
 	fi
 	cp -R "$(APP_PATH)" /Applications/
+	@codesign -f -s - --deep /Applications/$(PROJECT_NAME).app
+	@xattr -dr com.apple.quarantine /Applications/$(PROJECT_NAME).app
 	@echo "Installed! Run from /Applications or use: make run"
 
-# Build and run the app
 run: build
 	@echo "Launching $(PROJECT_NAME)..."
 	open "$(APP_PATH)"
 
-# Build and create DMG installer
 dmg: build
 	@echo "Creating DMG..."
 	@if [ ! -f "$(DMG_SCRIPT)" ]; then \
@@ -69,16 +67,13 @@ dmg: build
 		"$(PROJECT_NAME) $(VERSION)"
 	@echo "DMG created at: $(DMG_PATH)"
 
-# Clean build artifacts
 clean:
 	rm -rf "$(BUILD_DIR)"
 	@echo "Cleaned."
 
-# Open project in Xcode
 open:
 	open "$(PROJECT_NAME).xcodeproj"
 
-# Show version
 version:
 	@echo "Project: $(PROJECT_NAME)"
 	@echo "Version: $(VERSION)"

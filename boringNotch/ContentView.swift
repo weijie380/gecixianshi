@@ -71,7 +71,7 @@ struct ContentView: View {
         {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
             if Defaults[.enableLyrics] {
-                chinWidth += 220
+                chinWidth += 180
             }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
@@ -414,7 +414,7 @@ struct ContentView: View {
                               MarqueeText(
                                   .constant(musicManager.songTitle),
                                   font: .caption,
-                                  nsFont: .caption,
+                                  nsFont: .caption1,
                                   textColor: .white,
                                   minDuration: 0.4,
                                   frameWidth: Defaults[.enableLyrics] ? 120 :
@@ -458,7 +458,7 @@ struct ContentView: View {
                                   MarqueeText(
                                       .constant(line),
                                       font: .caption,
-                                      nsFont: .caption,
+                                      nsFont: .caption1,
                                       textColor: Color(red: 0.6, green: 0.8,
   blue: 1.0),
                                       minDuration: 1,
@@ -476,7 +476,7 @@ struct ContentView: View {
                           && Defaults[.sneakPeekStyles] == .inline)
                           ? 380
                           : Defaults[.enableLyrics]
-                              ? vm.closedNotchSize.width + 220
+                              ? vm.closedNotchSize.width + 180
                               : vm.closedNotchSize.width +
   -cornerRadiusInsets.closed.top
                   )
