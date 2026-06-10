@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号（可选，留空自动生成）'
+        description: '版本号（可选）'
         required: false
         default: ''
   push:
@@ -27,36 +27,36 @@ jobs:
         run: |
           sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ github.event.inputs.version }}/g" boringNotch.xcodeproj/project.pbxproj
 
-      - name: "构建 App（无签名）"
+      - name: "解析 Swift 依赖"
         run: |
-          xcodebuild clean archive \
+          xcodebuild -resolvePackageDependencies \
+            -project boringNotch.xcodeproj \
+            -scheme boringNotch
+
+      - name: "构建 App"
+        run: |
+          xcodebuild build \
             -project boringNotch.xcodeproj \
             -scheme boringNotch \
-            -archivePath build/boringNotch \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
             -destination "generic/platform=macOS" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            clean build
 
-      - name: "导出 App"
+      - name: "复制 App"
         run: |
-          xcodebuild -exportArchive \
-            -archivePath build/boringNotch.xcarchive \
-            -exportPath Release \
-            -exportOptionsPlist /dev/null \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO || true
-          # 如果上面的导出失败（没签名证书），手动从 archive 复制
-          if [ ! -d "Release/boringNotch.app" ]; then
-            cp -R "build/boringNotch.xcarchive/Products/Applications/boringNotch.app" Release/
-          fi
+          mkdir -p Release
+          cp -R "build/DerivedData/Build/Products/Release/boringNotch.app" Release/
 
       - name: "创建 DMG"
         run: |
           python3 -m venv /tmp/dmg-venv
           source /tmp/dmg-venv/bin/activate
-          pip3 install dmgbuild
+          pip3 install dmgbuild ds-store mac-alias
           bash Configuration/dmg/create_dmg.sh \
             "$(pwd)/Release/boringNotch.app" \
             "$(pwd)/Release/boringNotch.dmg" \
@@ -68,7 +68,7 @@ jobs:
           name: boringNotch.dmg
           path: Release/boringNotch.dmg
 
-      - name: "创建 Release"
+      - name: "发布 Release"
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
